@@ -3,10 +3,6 @@
 
 class PID {
 private:
-    // Temp: from Sebastian's lectures
-    double tau_;
-
-public:
     /*
     * Errors
     */
@@ -20,6 +16,9 @@ public:
     double Kp;
     double Ki;
     double Kd;
+
+public:
+
 
     /*
     * Constructor

@@ -5,8 +5,7 @@
 */
 
 PID::PID() {
-    tau_ = 0.1;
-    p_error = 0.;
+
 }
 
 PID::~PID() {
@@ -14,10 +13,13 @@ PID::~PID() {
 }
 
 void PID::Init(double Kp, double Ki, double Kd) {
+    this->Kp = Kp;
+    this->Ki = Ki;
+    this->Kd = Kd;
 }
 
 void PID::UpdateError(const double cte) {
-    const double steer = -tau_ * cte;
+    const double steer = -Kp * cte;
     p_error = steer;
 }
 
