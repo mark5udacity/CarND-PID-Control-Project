@@ -2,6 +2,10 @@
 #define PID_H
 
 class PID {
+private:
+    // Temp: from Sebastian's lectures
+    double tau_;
+
 public:
     /*
     * Errors
@@ -41,6 +45,8 @@ public:
     * Calculate the total PID error.
     */
     double TotalError();
+
+    double SteerValue();
 };
 
 #endif /* PID_H */
