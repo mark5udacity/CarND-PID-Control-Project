@@ -33,9 +33,8 @@ int main() {
     uWS::Hub h;
 
     PID pid;
-    // TODO: Tweak the pid variable.
-    const double p = 0.1;
-    const double d = 0.3;
+    const double p = 0.05;
+    const double d = 0.6;
     const double i = 0.0001;
     pid.Init(p, i, d);
 
