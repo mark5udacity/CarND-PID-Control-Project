@@ -6,6 +6,7 @@
 
 PID::PID() {
     this->d_error = INFINITY;
+    this->i_error = 0.;
 }
 
 PID::~PID() {
@@ -19,7 +20,7 @@ void PID::Init(double Kp, double Ki, double Kd) {
 }
 
 void PID::UpdateError(const double cte) {
-    double steer = -Kp * cte;
+    i_error += cte;
 
     double diff_cte;
     if (d_error == INFINITY) {
@@ -28,7 +29,9 @@ void PID::UpdateError(const double cte) {
         diff_cte = cte - d_error;
     }
 
-    steer -= Kd * diff_cte;
+    double steer = -Kp * cte; // proportional
+    steer -= Kd * diff_cte;   // differential
+    steer -= Ki * i_error;    // integral
     p_error = steer;
 }
 
