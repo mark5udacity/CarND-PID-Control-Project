@@ -1,6 +1,8 @@
 #ifndef PID_H
 #define PID_H
 
+#include <math.h>
+
 class PID {
 private:
     /*
@@ -9,6 +11,7 @@ private:
     double p_error;
     double i_error;
     double d_error;
+    double prev_cte_error;
 
     /*
     * Coefficients

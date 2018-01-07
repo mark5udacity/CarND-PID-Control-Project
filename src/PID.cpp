@@ -5,7 +5,7 @@
 */
 
 PID::PID() {
-
+    prev_cte_error = INFINITY;
 }
 
 PID::~PID() {
@@ -19,7 +19,16 @@ void PID::Init(double Kp, double Ki, double Kd) {
 }
 
 void PID::UpdateError(const double cte) {
-    const double steer = -Kp * cte;
+    double steer = -Kp * cte;
+
+    double diff_cte;
+    if (prev_cte_error == INFINITY) {
+        diff_cte = 0;
+    } else {
+        diff_cte = cte - prev_cte_error;
+    }
+
+    steer -= Kd * diff_cte;
     p_error = steer;
 }
 
