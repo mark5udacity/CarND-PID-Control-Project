@@ -5,7 +5,7 @@
 */
 
 PID::PID() {
-    prev_cte_error = INFINITY;
+    this->d_error = INFINITY;
 }
 
 PID::~PID() {
@@ -22,10 +22,10 @@ void PID::UpdateError(const double cte) {
     double steer = -Kp * cte;
 
     double diff_cte;
-    if (prev_cte_error == INFINITY) {
+    if (d_error == INFINITY) {
         diff_cte = 0;
     } else {
-        diff_cte = cte - prev_cte_error;
+        diff_cte = cte - d_error;
     }
 
     steer -= Kd * diff_cte;
