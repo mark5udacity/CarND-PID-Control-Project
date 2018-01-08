@@ -1,3 +1,4 @@
+#include <iostream>
 #include "PID.h"
 
 /*
@@ -13,6 +14,7 @@ PID::~PID() {
 }
 
 void PID::Init(double Kp, double Ki, double Kd) {
+    std::cout << "Initializing PID with Kp=" << Kp << ", Ki=" << Ki << ", and Kd=" << Kd << "\n";
     this->Kp = Kp;
     this->Ki = Ki;
     this->Kd = Kd;
@@ -41,6 +43,7 @@ void PID::UpdateError(const double cte) {
     steer -= Kd * diff_cte;   // differential
     steer -= Ki * i_error;    // integral
     p_error = steer;
+    d_error = p_error;
 }
 
 double PID::TotalError() {
