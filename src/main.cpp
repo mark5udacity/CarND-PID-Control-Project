@@ -9,11 +9,27 @@ using json = nlohmann::json;
 
 static bool justSwitchedToManual = true; // Just helpful printing when switching to manual
 
+static const bool USE_TWIDDLE = true;
+static const int TWIDDLE_ITERATIONS = 500;
+static const int MIN_TWIDDLE_IT_TO_START_ERR = 100;
+static const double DESIRED_ERROR = 0.5;  // Could be used to stop PID at the right time
+
 static const int WEBSOCKECT_OK_DISCONNECT_CODE = 1000;
 
 static const std::string RESET_SIMULATOR_WS_MESSAGE = "42[\"reset\", {}]";
 
 static const std::string MANUAL_WS_MESSAGE = "42[\"manual\",{}]";
+
+// TODO: FIXME: This probably is NOT thread safe...just trying out the Twiddle code...
+static double p_arr[3] = {0., 0., 0.};
+static double dp[3] = {.005, .005, .0001}; // Anything above .1 is already known manually to be quite bad, so save some time up to .5
+
+static int curTwiddleIt;
+static int curParamIdx;
+static double bestError;
+static double curError;
+static double best_p[3] = {0., 0., 0.};
+static bool tryingAgain = false;
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -38,10 +54,19 @@ int main() {
     uWS::Hub h;
 
     PID pid;
-    const double p = 0.05;
-    const double d = 0.6;
-    const double i = 0.0001;
-    pid.Init(p, i, d);
+    const double p = .00605;
+    const double d = .000001;
+    const double i = -.00055;
+
+    if (!USE_TWIDDLE) {
+        pid.Init(p, i, d);
+    } else {
+        curTwiddleIt = 0;
+        curParamIdx = 0;
+        curError = 0.;
+        bestError = INFINITY;
+        pid.Init(p_arr[0], p_arr[1], p_arr[2]);
+    }
 
     h.onMessage([&pid](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
         // "42" at the start of the message means there's a websocket message event.
@@ -69,14 +94,98 @@ int main() {
                     double steer_value = pid.SteerValue();
 
                     // DEBUG
-                    std::cout << "CTE: " << cte
-                              << ", Steering Value: " << steer_value << std::endl;
+                    //std::cout << "CTE: " << cte
+                    //          << ", Steering Value: " << steer_value << std::endl;
 
                     json msgJson;
                     msgJson["steering_angle"] = steer_value;
                     msgJson["throttle"] = 0.3;
 
                     auto msg = "42[\"steer\"," + msgJson.dump() + "]";
+
+                    if (USE_TWIDDLE) {
+                        curTwiddleIt++;
+
+                        if (curTwiddleIt > MIN_TWIDDLE_IT_TO_START_ERR) { // Why does Sebastian do this?
+                            if (curTwiddleIt == MIN_TWIDDLE_IT_TO_START_ERR + 1) {
+                                std::cout << "Reached min number of iterations to start recording CTE^2" << std::endl;
+                            }
+                            curError += cte * cte; // TODO: Is is necessary to square cte?
+                        }
+
+
+                        if (curTwiddleIt > TWIDDLE_ITERATIONS) {
+                            // TODO: is it necessary to divide by n?  Maybe we could leave out??
+                            const double endError = curError / (TWIDDLE_ITERATIONS - MIN_TWIDDLE_IT_TO_START_ERR);
+
+                            std::cout << "Reached max twiddle iterations, found error: " << endError << std::endl;
+
+                            if (tryingAgain) {
+                                tryingAgain = false;
+                                if (endError < bestError) {
+                                    std::cout << "Beat best error on try again!, *= 1.1 to dp" << std::endl;
+                                    bestError = endError;
+                                    dp[curParamIdx] *= 1.1;
+
+                                    best_p[0] = p_arr[0];
+                                    best_p[1] = p_arr[1];
+                                    best_p[2] = p_arr[2];
+                                } else {
+                                    std::cout << "Did NOT beat best error on try again!, *= 0.9 to dp" << std::endl;
+                                    p_arr[curParamIdx] += dp[curParamIdx];
+                                    dp[curParamIdx] *= 1.1;
+                                }
+
+                                std::cout << "moving to next paramIdx after tryingAgain" << std::endl;
+                                if (curParamIdx == 2) {
+                                    curParamIdx = 0;
+                                    // In Sebastian's, there is a tolerance, instead here, I will manually quit when needed...
+                                } else {
+                                    curParamIdx++;
+                                }
+                                p_arr[curParamIdx] += dp[curParamIdx];
+
+                            } else {
+                                if (endError < bestError) {
+                                    std::cout << "Beat best error on first try with these params, moving along to next paramIdx!"
+                                              << std::endl;
+                                    bestError = endError;
+                                    dp[curParamIdx] *= 1.1;
+
+                                    best_p[0] = p_arr[0];
+                                    best_p[1] = p_arr[1];
+                                    best_p[2] = p_arr[2];
+
+                                    if (curParamIdx == 2) {
+                                        curParamIdx = 0;
+                                        // In Sebastian's, there is a tolerance, instead here, I will manually quit when needed...
+                                    } else {
+                                        curParamIdx++;
+                                    }
+                                    p_arr[curParamIdx] += dp[curParamIdx];
+                                } else {
+                                    tryingAgain = true;
+                                    std::cout
+                                            << "Didn't beat the best error, so we're going to subtract twice dp and try again"
+                                            << std::endl;
+                                    p_arr[curParamIdx] -= 2 * dp[curParamIdx]; // TODO: Why 2* ????
+                                }
+                            }
+
+                            std::cout << "Current best P: ";
+                            for (const double curParam : best_p) {
+                                std::cout << curParam << ", ";
+                            }
+
+                            std::cout << " and best error: " << bestError << "\n\n\n";
+                            pid.Init(p_arr[0], p_arr[1], p_arr[2]);
+                            std::cout << "==============Sending simulator reset message===========\n\n\n\n" << std::endl;
+                            msg = RESET_SIMULATOR_WS_MESSAGE;
+                            curTwiddleIt = 0;
+                            curError = 0.;
+                        }
+                    }
+
                     //std::cout << msg << std::endl;
                     sendMessage(ws, msg);
                 } else {
