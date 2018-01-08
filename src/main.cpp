@@ -11,7 +11,7 @@ using json = nlohmann::json;
 static bool justSwitchedToManual = true; // Just helpful printing when switching to manual
 
 static const bool USE_TWIDDLE = true;
-static const int TWIDDLE_ITERATIONS = 1500;
+static const int TWIDDLE_ITERATIONS = 5000;
 static const int MIN_TWIDDLE_IT_TO_START_ERR = 100;
 static const double DESIRED_ERROR = 0.5;  // Could be used to stop PID at the right time
 
@@ -28,6 +28,7 @@ static double dp[3] = {.01, .01, .0001}; // Anything above .1 is already known m
 static int curTwiddleIt;
 static int curParamIdx;
 static double bestError;
+static int bestNumIterations;
 static double curError;
 static double best_p[3] = {0., 0., 0.};
 static bool tryingAgain = false;
@@ -100,7 +101,7 @@ void twiddleAfterAFullRun(const double endError) {// TODO: is it necessary to di
         } else {
             std::cout << "Did NOT beat best error on try again!, *= 0.9 to dp" << std::endl;
             p_arr[curParamIdx] += dp[curParamIdx];
-            dp[curParamIdx] *= 1.1;
+            dp[curParamIdx] *= 0.9;
         }
 
         std::cout << "moving to next paramIdx after tryingAgain" << std::endl;
@@ -154,10 +155,10 @@ int main() {
                 auto j = json::parse(s);
                 std::string event = j[0].get<std::string>();
                 if (event == "telemetry") {
-                    if (!justSwitchedToManual) {
-                        std::cout << "Taking back control from manual!!" << std::endl;
-                        justSwitchedToManual = true;
-                    }
+                    //if (!justSwitchedToManual) {
+                    //    std::cout << "Taking back control from manual!!" << std::endl;
+                    //    justSwitchedToManual = true;
+                    //}
 
                     // j[1] is the data JSON object
                     const double cte = std::stod(j[1]["cte"].get<std::string>());
@@ -192,13 +193,18 @@ int main() {
                             endError = curError / (curTwiddleIt - MIN_TWIDDLE_IT_TO_START_ERR);
                         }
 
-                        if (endError > 5. || curTwiddleIt > TWIDDLE_ITERATIONS) {
+                        if (endError > 15. || curTwiddleIt > TWIDDLE_ITERATIONS) {
 
-                            if (endError > 5.) {
+                            if (endError > 15.) {
                                 // early cut-off check for clearly wrong error values.  Having ran Twiddle for 10+minutes, best error
                                 // found was 0.0457...so use this to avoid whack-o params
                                 // so then we can fail quickly and try again
                                 std::cout << "!!!These params are clearly terrible, restarting twiddle with new params!!!" << std::endl;
+
+                                if (curTwiddleIt > bestNumIterations + 1) {
+                                    std::cout << "Reached new best num its before erroring out!  New best; " << curTwiddleIt << std::endl;
+                                    bestNumIterations = curTwiddleIt;
+                                }
                             } else {
                                 std::cout << "Reached max twiddle iterations!!! found error: " << endError << std::endl;
                             }
@@ -218,10 +224,10 @@ int main() {
                     std::cout << "What events do we receive that is non-telemetry? " << event << std::endl;
                 }
             } else {
-                if (justSwitchedToManual) {
-                    justSwitchedToManual = false;
-                    std::cout << "Switched to manual mode!!" << std::endl;
-                }
+                //if (justSwitchedToManual) {
+                //    justSwitchedToManual = false;
+                //    std::cout << "Switched to manual mode!!" << std::endl;
+                //}
 
                 sendMessage(ws, MANUAL_WS_MESSAGE);
             }
