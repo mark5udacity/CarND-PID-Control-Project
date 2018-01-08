@@ -3,7 +3,7 @@
 #include "json.hpp"
 #include "PID.h"
 #include <math.h>
-#include <tclDecls.h>
+//#include <tclDecls.h>
 
 // for convenience
 using json = nlohmann::json;
@@ -11,7 +11,7 @@ using json = nlohmann::json;
 static bool justSwitchedToManual = true; // Just helpful printing when switching to manual
 
 static const bool USE_TWIDDLE = true;
-static const int TWIDDLE_ITERATIONS = 500;
+static const int TWIDDLE_ITERATIONS = 1500;
 static const int MIN_TWIDDLE_IT_TO_START_ERR = 100;
 static const double DESIRED_ERROR = 0.5;  // Could be used to stop PID at the right time
 
@@ -23,7 +23,7 @@ static const std::string MANUAL_WS_MESSAGE = "42[\"manual\",{}]";
 
 // TODO: FIXME: This probably is NOT thread safe...just trying out the Twiddle code...
 static double p_arr[3] = {0., 0., 0.};
-static double dp[3] = {.005, .005, .0001}; // Anything above .1 is already known manually to be quite bad, so save some time up to .5
+static double dp[3] = {.01, .01, .0001}; // Anything above .1 is already known manually to be quite bad, so save some time up to .5
 
 static int curTwiddleIt;
 static int curParamIdx;
@@ -55,6 +55,9 @@ void moveToNextParamToTweak() {
     if (curParamIdx == 2) {
         curParamIdx = 0;
         // In Sebastian's, there is a tolerance, instead here, I will manually quit when needed...
+        std::cout << "=====================================================\n";
+        std::cout << "| Did a full run of param tweaks, how's it looking? |\n";
+        std::cout << "=====================================================\n";
     } else {
         curParamIdx++;
     }
@@ -74,11 +77,12 @@ void recordBest(const double endError) {
 }
 
 void resetPidAndRunTwiddleAgain(PID pid) {
-    std::__1::cout << "Current best P: ";
+    std::cout << "Current best P: ";
     for (const double curParam : best_p) {
-                                std::__1::cout << curParam << ", ";
-                            }
-    std::__1::cout << " and best error: " << bestError << "\n\n\n";
+        std::cout << curParam << ", ";
+    }
+
+    std::cout << " and best error: " << bestError << "\n\n\n";
 
 
     pid.Init(p_arr[0], p_arr[1], p_arr[2]);
@@ -87,11 +91,7 @@ void resetPidAndRunTwiddleAgain(PID pid) {
     curError = 0.;
 }
 
-void twiddleAfterAFullRun() {// TODO: is it necessary to divide by n?  Maybe we could leave out??
-    const double endError = curError / (TWIDDLE_ITERATIONS - MIN_TWIDDLE_IT_TO_START_ERR);
-
-    std::cout << "Reached max twiddle iterations, found error: " << endError << std::endl;
-
+void twiddleAfterAFullRun(const double endError) {// TODO: is it necessary to divide by n?  Maybe we could leave out??
     if (tryingAgain) {
         tryingAgain = false;
         if (endError < bestError) {
@@ -110,7 +110,7 @@ void twiddleAfterAFullRun() {// TODO: is it necessary to divide by n?  Maybe we 
     } else {
         if (endError < bestError) {
             std::cout << "Beat best error on first try with these params, moving along to next paramIdx!"
-                           << std::__1::endl;
+                           << std::endl;
             recordBest(endError);
 
             moveToNextParamToTweak();
@@ -119,8 +119,8 @@ void twiddleAfterAFullRun() {// TODO: is it necessary to divide by n?  Maybe we 
             tryingAgain = true;
             std::cout
                     << "Didn't beat the best error, so we're going to subtract twice dp and try again"
-                    << std::__1::endl;
-            p_arr[curParamIdx] -= 2 * dp[curParamIdx]; // TODO: Why 2* ????
+                    << std::endl;
+            p_arr[curParamIdx] -= 2 * dp[curParamIdx]; // we subtract twice because we added before
         }
     }
 }
@@ -179,21 +179,35 @@ int main() {
                     auto msg = "42[\"steer\"," + msgJson.dump() + "]";
 
                     if (USE_TWIDDLE) {
+                        double endError = 0.;
                         curTwiddleIt++;
 
                         if (curTwiddleIt > MIN_TWIDDLE_IT_TO_START_ERR) { // Why does Sebastian do this?
                             if (curTwiddleIt == MIN_TWIDDLE_IT_TO_START_ERR + 1) {
-                                std::cout << "Reached min number of iterations to start recording CTE^2" << std::endl;
+                                std::cout << "Reached min number of iterations to start recording CTE^2"
+                                          << std::endl;
                             }
                             curError += cte * cte; // TODO: Is is necessary to square cte?
+
+                            endError = curError / (curTwiddleIt - MIN_TWIDDLE_IT_TO_START_ERR);
                         }
 
+                        if (endError > 5. || curTwiddleIt > TWIDDLE_ITERATIONS) {
 
-                        if (curTwiddleIt > TWIDDLE_ITERATIONS) {
-                            twiddleAfterAFullRun();
+                            if (endError > 5.) {
+                                // early cut-off check for clearly wrong error values.  Having ran Twiddle for 10+minutes, best error
+                                // found was 0.0457...so use this to avoid whack-o params
+                                // so then we can fail quickly and try again
+                                std::cout << "!!!These params are clearly terrible, restarting twiddle with new params!!!" << std::endl;
+                            } else {
+                                std::cout << "Reached max twiddle iterations!!! found error: " << endError << std::endl;
+                            }
+
+                            twiddleAfterAFullRun(endError);
 
                             resetPidAndRunTwiddleAgain(pid);
-                            std::cout << "==============Sending simulator reset message===========\n\n\n\n" << std::endl;
+                            std::cout << "==============Sending simulator reset message===========\n\n\n\n"
+                                      << std::endl;
                             msg = RESET_SIMULATOR_WS_MESSAGE;
                         }
                     }
