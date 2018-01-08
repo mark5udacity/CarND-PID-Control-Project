@@ -30,6 +30,10 @@ std::string hasData(std::string s) {
     return "";
 }
 
+void sendMessage(uWS::WebSocket<uWS::SERVER> ws, std::string msg) {
+    ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+}
+
 int main() {
     uWS::Hub h;
 
@@ -63,16 +67,18 @@ int main() {
                     pid.UpdateError(cte);
 
                     double steer_value = pid.SteerValue();
+
                     // DEBUG
-                    //std::cout << "CTE: " << cte << " Steering Value: " << steer_value << std::endl;
+                    std::cout << "CTE: " << cte
+                              << ", Steering Value: " << steer_value << std::endl;
 
                     json msgJson;
                     msgJson["steering_angle"] = steer_value;
                     msgJson["throttle"] = 0.3;
 
                     auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-                    std::cout << msg << std::endl;
-                    ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+                    //std::cout << msg << std::endl;
+                    sendMessage(ws, msg);
                 } else {
                     std::cout << "What events do we receive that is non-telemetry? " << event << std::endl;
                 }
@@ -82,8 +88,7 @@ int main() {
                     std::cout << "Switched to manual mode!!" << std::endl;
                 }
 
-                auto msg = MANUAL_WS_MESSAGE;
-                ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+                sendMessage(ws, MANUAL_WS_MESSAGE);
             }
         }
     });
