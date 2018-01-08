@@ -5,8 +5,7 @@
 */
 
 PID::PID() {
-    this->d_error = INFINITY;
-    this->i_error = 0.;
+
 }
 
 PID::~PID() {
@@ -17,14 +16,23 @@ void PID::Init(double Kp, double Ki, double Kd) {
     this->Kp = Kp;
     this->Ki = Ki;
     this->Kd = Kd;
+
+    p_error = 0.;
+    i_error = 0.;
+    d_error = INFINITY;
 }
 
 void PID::UpdateError(const double cte) {
     i_error += cte;
 
+    // TODO: Consider using Alpha smoothing-- give stronger bias to more recent errors over older ones
+    //if (i_err: consuideror > 3.) {
+    //    i_error = 0.; // This is one way, alternative is to keep list of X-most recent points.
+    //}
+
     double diff_cte;
     if (d_error == INFINITY) {
-        diff_cte = 0;
+        diff_cte = 0.;
     } else {
         diff_cte = cte - d_error;
     }
