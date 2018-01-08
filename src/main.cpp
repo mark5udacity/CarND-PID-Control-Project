@@ -3,6 +3,7 @@
 #include "json.hpp"
 #include "PID.h"
 #include <math.h>
+#include <tclDecls.h>
 
 // for convenience
 using json = nlohmann::json;
@@ -48,6 +49,80 @@ std::string hasData(std::string s) {
 
 void sendMessage(uWS::WebSocket<uWS::SERVER> ws, std::string msg) {
     ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+}
+
+void moveToNextParamToTweak() {
+    if (curParamIdx == 2) {
+        curParamIdx = 0;
+        // In Sebastian's, there is a tolerance, instead here, I will manually quit when needed...
+    } else {
+        curParamIdx++;
+    }
+
+    //std::cout << "Moving on to tweak: " << curParamIdx << std::endl;
+    p_arr[curParamIdx] += dp[curParamIdx]; // This is done at beginning of for loop in the Sebastian's Python code
+}
+
+void recordBest(const double endError) {
+    bestError = endError;
+
+    best_p[0] = p_arr[0];
+    best_p[1] = p_arr[1];
+    best_p[2] = p_arr[2];
+
+    dp[curParamIdx] *= 1.1; // This is also done whenever we beat the bestError, whether on try-again or first-time
+}
+
+void resetPidAndRunTwiddleAgain(PID pid) {
+    std::__1::cout << "Current best P: ";
+    for (const double curParam : best_p) {
+                                std::__1::cout << curParam << ", ";
+                            }
+    std::__1::cout << " and best error: " << bestError << "\n\n\n";
+
+
+    pid.Init(p_arr[0], p_arr[1], p_arr[2]);
+
+    curTwiddleIt = 0;
+    curError = 0.;
+}
+
+void twiddleAfterAFullRun() {// TODO: is it necessary to divide by n?  Maybe we could leave out??
+    const double endError = curError / (TWIDDLE_ITERATIONS - MIN_TWIDDLE_IT_TO_START_ERR);
+
+    std::cout << "Reached max twiddle iterations, found error: " << endError << std::endl;
+
+    if (tryingAgain) {
+        tryingAgain = false;
+        if (endError < bestError) {
+            std::cout << "Beat best error on try again!, *= 1.1 to dp" << std::endl;
+            recordBest(endError);
+        } else {
+            std::cout << "Did NOT beat best error on try again!, *= 0.9 to dp" << std::endl;
+            p_arr[curParamIdx] += dp[curParamIdx];
+            dp[curParamIdx] *= 1.1;
+        }
+
+        std::cout << "moving to next paramIdx after tryingAgain" << std::endl;
+
+        moveToNextParamToTweak();
+
+    } else {
+        if (endError < bestError) {
+            std::cout << "Beat best error on first try with these params, moving along to next paramIdx!"
+                           << std::__1::endl;
+            recordBest(endError);
+
+            moveToNextParamToTweak();
+
+        } else {
+            tryingAgain = true;
+            std::cout
+                    << "Didn't beat the best error, so we're going to subtract twice dp and try again"
+                    << std::__1::endl;
+            p_arr[curParamIdx] -= 2 * dp[curParamIdx]; // TODO: Why 2* ????
+        }
+    }
 }
 
 int main() {
@@ -115,74 +190,11 @@ int main() {
 
 
                         if (curTwiddleIt > TWIDDLE_ITERATIONS) {
-                            // TODO: is it necessary to divide by n?  Maybe we could leave out??
-                            const double endError = curError / (TWIDDLE_ITERATIONS - MIN_TWIDDLE_IT_TO_START_ERR);
+                            twiddleAfterAFullRun();
 
-                            std::cout << "Reached max twiddle iterations, found error: " << endError << std::endl;
-
-                            if (tryingAgain) {
-                                tryingAgain = false;
-                                if (endError < bestError) {
-                                    std::cout << "Beat best error on try again!, *= 1.1 to dp" << std::endl;
-                                    bestError = endError;
-                                    dp[curParamIdx] *= 1.1;
-
-                                    best_p[0] = p_arr[0];
-                                    best_p[1] = p_arr[1];
-                                    best_p[2] = p_arr[2];
-                                } else {
-                                    std::cout << "Did NOT beat best error on try again!, *= 0.9 to dp" << std::endl;
-                                    p_arr[curParamIdx] += dp[curParamIdx];
-                                    dp[curParamIdx] *= 1.1;
-                                }
-
-                                std::cout << "moving to next paramIdx after tryingAgain" << std::endl;
-                                if (curParamIdx == 2) {
-                                    curParamIdx = 0;
-                                    // In Sebastian's, there is a tolerance, instead here, I will manually quit when needed...
-                                } else {
-                                    curParamIdx++;
-                                }
-                                p_arr[curParamIdx] += dp[curParamIdx];
-
-                            } else {
-                                if (endError < bestError) {
-                                    std::cout << "Beat best error on first try with these params, moving along to next paramIdx!"
-                                              << std::endl;
-                                    bestError = endError;
-                                    dp[curParamIdx] *= 1.1;
-
-                                    best_p[0] = p_arr[0];
-                                    best_p[1] = p_arr[1];
-                                    best_p[2] = p_arr[2];
-
-                                    if (curParamIdx == 2) {
-                                        curParamIdx = 0;
-                                        // In Sebastian's, there is a tolerance, instead here, I will manually quit when needed...
-                                    } else {
-                                        curParamIdx++;
-                                    }
-                                    p_arr[curParamIdx] += dp[curParamIdx];
-                                } else {
-                                    tryingAgain = true;
-                                    std::cout
-                                            << "Didn't beat the best error, so we're going to subtract twice dp and try again"
-                                            << std::endl;
-                                    p_arr[curParamIdx] -= 2 * dp[curParamIdx]; // TODO: Why 2* ????
-                                }
-                            }
-
-                            std::cout << "Current best P: ";
-                            for (const double curParam : best_p) {
-                                std::cout << curParam << ", ";
-                            }
-
-                            std::cout << " and best error: " << bestError << "\n\n\n";
-                            pid.Init(p_arr[0], p_arr[1], p_arr[2]);
+                            resetPidAndRunTwiddleAgain(pid);
                             std::cout << "==============Sending simulator reset message===========\n\n\n\n" << std::endl;
                             msg = RESET_SIMULATOR_WS_MESSAGE;
-                            curTwiddleIt = 0;
-                            curError = 0.;
                         }
                     }
 
