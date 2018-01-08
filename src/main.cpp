@@ -20,6 +20,7 @@ static const int WEBSOCKECT_OK_DISCONNECT_CODE = 1000;
 static const std::string RESET_SIMULATOR_WS_MESSAGE = "42[\"reset\", {}]";
 
 static const std::string MANUAL_WS_MESSAGE = "42[\"manual\",{}]";
+static const double MAX_ITERATION_ERROR = 15.;
 
 // TODO: FIXME: This probably is NOT thread safe...just trying out the Twiddle code...
 static double p_arr[3] = {0., 0., 0.};
@@ -135,8 +136,12 @@ int main() {
     const double i = -.00055;
 
     if (!USE_TWIDDLE) {
+        std::cout << "No Twiddle, just using supplied params!" << std::endl;
         pid.Init(p, i, d);
     } else {
+        std::cout << "Using Twiddle! with params: max_iterations" << TWIDDLE_ITERATIONS
+                  << " and min to record: " << MIN_TWIDDLE_IT_TO_START_ERR
+                  << " and max allowed length: " <<  MAX_ITERATION_ERROR << std::endl;
         curTwiddleIt = 0;
         curParamIdx = 0;
         curError = 0.;
@@ -193,9 +198,9 @@ int main() {
                             endError = curError / (curTwiddleIt - MIN_TWIDDLE_IT_TO_START_ERR);
                         }
 
-                        if (endError > 15. || curTwiddleIt > TWIDDLE_ITERATIONS) {
+                        if (endError > MAX_ITERATION_ERROR || curTwiddleIt > TWIDDLE_ITERATIONS) {
 
-                            if (endError > 15.) {
+                            if (endError > MAX_ITERATION_ERROR) {
                                 // early cut-off check for clearly wrong error values.  Having ran Twiddle for 10+minutes, best error
                                 // found was 0.0457...so use this to avoid whack-o params
                                 // so then we can fail quickly and try again
