@@ -24,8 +24,8 @@ static const std::string MANUAL_WS_MESSAGE = "42[\"manual\",{}]";
 static const double MAX_ITERATION_ERROR = 15.;
 
 // TODO: FIXME: This probably is NOT thread safe...just trying out the Twiddle code...
-static double p_arr[3] = {.170359, .00000000190791, .3};
-static double dp[3] = {.1, .000001, .1 }; // Anything above .1 is already known manually to be quite bad, so save some time up to .5
+static double p_arr[3] = {.170359, .00000000190791, .1};
+static double dp[3] = {.01, .000001, .01 }; // Anything above .1 is already known manually to be quite bad, so save some time up to .5
 
 
 //Running Twiddle with
@@ -38,6 +38,11 @@ static double dp[3] = {.1, .000001, .1 }; // Anything above .1 is already known 
 //Current best P: 0.170359, 0.00190791, 0.5,  and best error: 6.04466
 
 // Ok, let's get rid of this 0.5, that's def too high, car is wild and dizzying!
+
+// take 2, BLEcH
+//static double p_arr[3] = {.070359, .00000000190791, .1};
+//static double dp[3] = {.05, .000001, .05 };
+// Current best P: 0.159359, 1.90791e-09, 0.341541,  and best error: 17.4547
 
 static int curTwiddleIt;
 static int curParamIdx;
@@ -202,7 +207,7 @@ int main() {
 
                     json msgJson;
                     msgJson["steering_angle"] = steer_value;
-                    msgJson["throttle"] = 0.3;
+                    msgJson["throttle"] = throttle_value;
 
                     auto msg = "42[\"steer\"," + msgJson.dump() + "]";
 
@@ -233,8 +238,9 @@ int main() {
                                 std::cout << "!!!These params are clearly terrible, restarting twiddle with new params!!!" << std::endl;
 
                                 if (curTwiddleIt > bestNumIterations + 1) {
-                                    std::cout << "Reached new best num its before erroring out!  New best; " << curTwiddleIt << std::endl;
+                                    std::cout << "Reached new best num its before error-ing out!  New best; " << curTwiddleIt << std::endl;
                                     bestNumIterations = curTwiddleIt;
+                                    recordBest(endError); // Yah, so the error might go up, but that's OK, because we want to run longer!
                                 }
                             } else {
                                 std::cout << "Reached max twiddle iterations!!! found error: " << endError << std::endl;
