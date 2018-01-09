@@ -1,9 +1,6 @@
 #include <uWS/uWS.h>
-#include <iostream>
 #include "json.hpp"
 #include "PID.h"
-#include <math.h>
-//#include <tclDecls.h>
 
 // for convenience
 using json = nlohmann::json;
@@ -23,7 +20,7 @@ static const std::string RESET_SIMULATOR_WS_MESSAGE = "42[\"reset\", {}]";
 static const std::string MANUAL_WS_MESSAGE = "42[\"manual\",{}]";
 static const double MAX_ITERATION_ERROR = 15.;
 
-// TODO: FIXME: This probably is NOT thread safe...just trying out the Twiddle code...
+// FIXME: This probably is NOT thread safe...just trying out the Twiddle code...
 static double p_arr[3] = {.170359, .00000000190791, .1};
 static double dp[3] = {.01, .000001, .01 }; // Anything above .1 is already known manually to be quite bad, so save some time up to .5
 

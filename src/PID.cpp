@@ -1,10 +1,6 @@
 #include <iostream>
 #include "PID.h"
 
-/*
-* TODO: Complete the PID class.
-*/
-
 PID::PID() {
 
 }
@@ -27,11 +23,6 @@ void PID::Init(double Kp, double Ki, double Kd) {
 void PID::UpdateError(const double cte) {
     i_error += cte * .1;
     i_error *= .90; // Reduce by 10 percent!  Just like from Twiddle code
-
-    // TODO: Consider removing/tweaking this^^  Alpha smoothing, which gives stronger bias to more recent errors over older ones
-    //if (abs(i_error) > 10.) {
-    //        i_error = 0.; // This is one way, alternative is to keep list of X-most recent points.
-    //}
 
     double diff_cte;
     if (d_error == INFINITY) {

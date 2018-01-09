@@ -43,11 +43,17 @@ public:
     void UpdateError(double cte);
 
     /*
-    * Calculate the total PID error.
+    * Return the total PID error.
     */
     double TotalError();
 
-    double SteerValue(bool b);
+    /**
+     * This may not belong here as it is specific to this particular project.
+     *
+     * @param debug print debug values if true
+     * @return The steering error based on Total Error, adjusted for constraints.
+     */
+    double SteerValue(bool debug);
 
 };
 
