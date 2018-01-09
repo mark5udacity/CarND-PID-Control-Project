@@ -1,2 +1,5 @@
 language: cpp
-script: make && cmake
+script:
+  ./install-ubuntu.sh
+  mkdir build && cd build
+  cmake .. && make
