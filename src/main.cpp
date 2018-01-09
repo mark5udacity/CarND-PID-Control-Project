@@ -9,6 +9,7 @@
 using json = nlohmann::json;
 
 static bool justSwitchedToManual = true; // Just helpful printing when switching to manual
+static bool FIRST_TIME = true;
 
 static const bool USE_TWIDDLE = false;
 static const int TWIDDLE_ITERATIONS = 5000;
@@ -270,7 +271,14 @@ int main() {
     });
 
     h.onConnection([&h](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
-        std::cout << "Connected!!!" << std::endl;
+        if (FIRST_TIME) {
+            std::cout << "Connected for first time!!!  Restarting simulator!" << std::endl;
+            FIRST_TIME = false;
+            auto msg = RESET_SIMULATOR_WS_MESSAGE;
+            sendMessage(ws, msg);
+        } else {
+            std::cout << "Reconnected to simulator, success!" << std::endl;
+        }
     });
 
     h.onError([](void *user) {
