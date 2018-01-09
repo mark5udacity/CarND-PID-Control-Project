@@ -10,7 +10,7 @@ using json = nlohmann::json;
 
 static bool justSwitchedToManual = true; // Just helpful printing when switching to manual
 
-static const bool USE_TWIDDLE = true;
+static const bool USE_TWIDDLE = false;
 static const int TWIDDLE_ITERATIONS = 5000;
 static const int MIN_TWIDDLE_IT_TO_START_ERR = 100;
 static const double DESIRED_ERROR = 0.5;  // Could be used to stop PID at the right time
@@ -23,8 +23,20 @@ static const std::string MANUAL_WS_MESSAGE = "42[\"manual\",{}]";
 static const double MAX_ITERATION_ERROR = 15.;
 
 // TODO: FIXME: This probably is NOT thread safe...just trying out the Twiddle code...
-static double p_arr[3] = {0., 0., 0.};
-static double dp[3] = {.01, .01, .0001}; // Anything above .1 is already known manually to be quite bad, so save some time up to .5
+static double p_arr[3] = {.35, .0009, .3};
+static double dp[3] = {.2, .001, .2 }; // Anything above .1 is already known manually to be quite bad, so save some time up to .5
+
+
+//Running Twiddle with
+//static double p_arr[3] = {.35, .0009, .3};
+//static double dp[3] = {.2, .001, .2 };
+
+//Current best P: 0.35, 0.0009, 0.5,  and best error: 15.0018
+//Current best P: 0.13, 0.00190791, 0.5,  and best error: 6.72912
+// (1+ hour later)....
+//Current best P: 0.170359, 0.00190791, 0.5,  and best error: 6.04466
+
+// Ok, let's get rid of this 0.5, that's def too high, car is wild and dizzying!
 
 static int curTwiddleIt;
 static int curParamIdx;
@@ -131,9 +143,9 @@ int main() {
     uWS::Hub h;
 
     PID pid;
-    const double p = .00605;
-    const double d = .000001;
-    const double i = -.00055;
+    const double p = 0.170359; //.06;
+    const double i = .000190791;
+    const double d = .05; //19;
 
     if (!USE_TWIDDLE) {
         std::cout << "No Twiddle, just using supplied params!" << std::endl;
@@ -172,11 +184,17 @@ int main() {
 
                     pid.UpdateError(cte);
 
-                    double steer_value = pid.SteerValue();
+                    double steer_value = pid.SteerValue(!USE_TWIDDLE);
+                    double throttle_value = .3;
+                    if (cte > 2.) { // Slow down when CTE gets too high
+                        throttle_value = .05;
+                    }
 
                     // DEBUG
-                    //std::cout << "CTE: " << cte
-                    //          << ", Steering Value: " << steer_value << std::endl;
+                    if (!USE_TWIDDLE) {
+                        std::cout << "CTE: " << cte
+                                  << ", Steering Value: " << steer_value << std::endl;
+                    }
 
                     json msgJson;
                     msgJson["steering_angle"] = steer_value;

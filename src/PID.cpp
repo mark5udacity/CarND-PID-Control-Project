@@ -14,7 +14,7 @@ PID::~PID() {
 }
 
 void PID::Init(double Kp, double Ki, double Kd) {
-    std::cout << "Initializing PID with Kp=" << Kp << ", Ki=" << Ki << ", and Kd=" << Kd << "\n";
+    std::cout << "~~~ Initializing PID with Kp=" << Kp << ", Ki=" << Ki << ", and Kd=" << Kd << " ~~~\n";
     this->Kp = Kp;
     this->Ki = Ki;
     this->Kd = Kd;
@@ -25,12 +25,12 @@ void PID::Init(double Kp, double Ki, double Kd) {
 }
 
 void PID::UpdateError(const double cte) {
-    i_error += cte;
+    i_error += cte * .1;
 
-    // TODO: Consider using Alpha smoothing-- give stronger bias to more recent errors over older ones
-    //if (i_err: consuideror > 3.) {
-    //    i_error = 0.; // This is one way, alternative is to keep list of X-most recent points.
-    //}
+    // TODO: Consider Removing this  Alpha smoothing-- give stronger bias to more recent errors over older ones
+    if (abs(i_error) > 10.) {
+        i_error = 0.; // This is one way, alternative is to keep list of X-most recent points.
+    }
 
     double diff_cte;
     if (d_error == INFINITY) {
@@ -50,8 +50,12 @@ double PID::TotalError() {
     return p_error;
 }
 
-double PID::SteerValue() {
+double PID::SteerValue(bool debug) {
     double steer_value = TotalError();
+
+    if (debug) {
+        std::cout << "total error: " << steer_value << " i_error: " << i_error << std::endl;
+    }
     if (steer_value > 1.) {
         steer_value = 1.;
     } else if (steer_value < -1.) {
@@ -60,4 +64,3 @@ double PID::SteerValue() {
 
     return steer_value;
 }
-

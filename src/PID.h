@@ -47,7 +47,8 @@ public:
     */
     double TotalError();
 
-    double SteerValue();
+    double SteerValue(bool b);
+
 };
 
 #endif /* PID_H */
