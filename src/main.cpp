@@ -24,8 +24,8 @@ static const std::string MANUAL_WS_MESSAGE = "42[\"manual\",{}]";
 static const double MAX_ITERATION_ERROR = 15.;
 
 // TODO: FIXME: This probably is NOT thread safe...just trying out the Twiddle code...
-static double p_arr[3] = {.35, .0009, .3};
-static double dp[3] = {.2, .001, .2 }; // Anything above .1 is already known manually to be quite bad, so save some time up to .5
+static double p_arr[3] = {.170359, .00000000190791, .3};
+static double dp[3] = {.1, .000001, .1 }; // Anything above .1 is already known manually to be quite bad, so save some time up to .5
 
 
 //Running Twiddle with
@@ -73,9 +73,12 @@ void moveToNextParamToTweak() {
         std::cout << "=====================================================\n";
         std::cout << "| Did a full run of param tweaks, how's it looking? |\n";
         std::cout << "=====================================================\n";
-    } else {
+    }// else if (curParamIdx == 0) {
+     //   std::cout << "Skipping i-error for now, want to focus on p/d\n";
+     //   curParamIdx = 2;
+   // } else {
         curParamIdx++;
-    }
+    //}
 
     //std::cout << "Moving on to tweak: " << curParamIdx << std::endl;
     p_arr[curParamIdx] += dp[curParamIdx]; // This is done at beginning of for loop in the Sebastian's Python code
@@ -144,9 +147,9 @@ int main() {
     uWS::Hub h;
 
     PID pid;
-    const double p = 0.170359; //.06;
-    const double i = .000190791;
-    const double d = .05; //19;
+    const double p = .17; //0.070359; //.06;
+    const double i = 0; //.000190791;
+    const double d = .07; //.8; //19;
 
     if (!USE_TWIDDLE) {
         std::cout << "No Twiddle, just using supplied params!" << std::endl;
@@ -186,9 +189,9 @@ int main() {
                     pid.UpdateError(cte);
 
                     double steer_value = pid.SteerValue(!USE_TWIDDLE);
-                    double throttle_value = .3;
+                    double throttle_value = .1;
                     if (cte > 2.) { // Slow down when CTE gets too high
-                        throttle_value = .05;
+                        throttle_value = .01;
                     }
 
                     // DEBUG
@@ -209,12 +212,16 @@ int main() {
 
                         if (curTwiddleIt > MIN_TWIDDLE_IT_TO_START_ERR) { // Why does Sebastian do this?
                             if (curTwiddleIt == MIN_TWIDDLE_IT_TO_START_ERR + 1) {
-                                std::cout << "Reached min number of iterations to start recording CTE^2"
-                                          << std::endl;
+                                std::cout << "Reached min number of iterations to start recording CTE^2" << std::endl;
                             }
                             curError += cte * cte; // TODO: Is is necessary to square cte?
 
                             endError = curError / (curTwiddleIt - MIN_TWIDDLE_IT_TO_START_ERR);
+
+                            if (speed < 0.02) {
+                                std::cout << "Probably stuck!  Resetting!" << std::endl;
+                                endError += MAX_ITERATION_ERROR;
+                            }
                         }
 
                         if (endError > MAX_ITERATION_ERROR || curTwiddleIt > TWIDDLE_ITERATIONS) {
